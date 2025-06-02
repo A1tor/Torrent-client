@@ -7,7 +7,6 @@ import java.awt.Image;
 import java.io.BufferedInputStream;
 import java.io.File;
 import java.io.FileInputStream;
-import java.io.IOException;
 
 import javax.swing.BorderFactory;
 import javax.swing.ImageIcon;
@@ -31,8 +30,8 @@ public class TorrentInfo {
     private static final ImageIcon CROSS_ICON = new ImageIcon(new ImageIcon(".\\src\\main\\resources\\cross.png").getImage().getScaledInstance(HEIGHT, HEIGHT, Image.SCALE_SMOOTH));
     public static final int SLEEP_TIME = 3000;
     public static final String[] scaleUnitArray = {"Byte", "Kb", "Mb", "Gb"};
-    private static long scale = 1024;
-    private static String scaleValue = scaleUnitArray[1];
+    private static long scale = 1048576;
+    private static String scaleValue = scaleUnitArray[2];
     public static int PORT = 6881;
     public static int UPLOAD_SPEED_LIMIT;
     private final TBuilder tbuilder;
@@ -43,6 +42,7 @@ public class TorrentInfo {
     private JLabel downloadedCountLabel;
     private JLabel downloadSpeedLabel;
     private JLabel seedToPeerLabel;
+    private JLabel sizeLabel;
     private JButton playButton;
     private JProgressBar progressBar;
     public String torrentName;
@@ -56,11 +56,12 @@ public class TorrentInfo {
         this.torrentFilePath = torrentFilePath;
         this.outputFilePath = outputFilePath;
         panel = new JPanel(new BorderLayout());
-        panel.setLayout(new SpringLayout());
+        var layout = new SpringLayout();
+        panel.setLayout(layout);
         panel.setPreferredSize(new Dimension(0, HEIGHT));
         panel.setMinimumSize(new Dimension(0, HEIGHT));
         panel.setMaximumSize(new Dimension(Integer.MAX_VALUE, HEIGHT));
-        SpringLayout layout = (SpringLayout) panel.getLayout();
+        
         var deleteButton = new JButton(CROSS_ICON);
         deleteButton.setBorder(BORDER);
         deleteButton.addActionListener(event -> Main.removeTorrent(this));
@@ -85,6 +86,7 @@ public class TorrentInfo {
         }
         
         tdisk = new PlainFileSystemTorrentDisk(metafile, new File(outputFilePath));
+        tdisk.init();
         tbuilder = new TBuilder(this);
 
         torrentName = metafile.getName();
@@ -97,11 +99,15 @@ public class TorrentInfo {
         playButton.addActionListener(event -> playButtonClick());
         panel.add(playButton);
 
-        var nameLabel = new JLabel(metafile.getName());
+        var nameLabel = new JLabel(torrentName.length() > 50 ? torrentName.substring(0, 50) : torrentName);
         nameLabel.setBorder(BORDER);
         panel.add(nameLabel);
 
-        downloadedCountLabel = new JLabel("0");
+        sizeLabel = new JLabel(String.format("%d %s", getMeasuredValue(metafile.getLength()), scaleValue));
+        sizeLabel.setBorder(BORDER);
+        panel.add(sizeLabel);
+
+        downloadedCountLabel = new JLabel();
         downloadedCountLabel.setBorder(BORDER);
         panel.add(downloadedCountLabel);
 
@@ -112,45 +118,45 @@ public class TorrentInfo {
         progressBar.setPreferredSize(new Dimension(150, HEIGHT));
         panel.add(progressBar);
 
-        downloadSpeedLabel = new JLabel("0");
+        downloadSpeedLabel = new JLabel();
         downloadSpeedLabel.setBorder(BORDER);
         panel.add(downloadSpeedLabel);
 
-        seedToPeerLabel = new JLabel("0 / 0");
+        seedToPeerLabel = new JLabel();
         seedToPeerLabel.setBorder(BORDER);
         panel.add(seedToPeerLabel);
 
         layout.putConstraint(SpringLayout.WEST, playButton, 10, SpringLayout.WEST, panel);
-        layout.putConstraint(SpringLayout.WEST, nameLabel, 60, SpringLayout.WEST, panel);
-        layout.putConstraint(SpringLayout.WEST, progressBar, 300, SpringLayout.WEST, panel);
+        layout.putConstraint(SpringLayout.WEST, nameLabel, 40, SpringLayout.WEST, panel);
+        layout.putConstraint(SpringLayout.WEST, sizeLabel, 280, SpringLayout.WEST, panel);
+        layout.putConstraint(SpringLayout.WEST, progressBar, 350, SpringLayout.WEST, panel);
         layout.putConstraint(SpringLayout.HORIZONTAL_CENTER, downloadedCountLabel, 0, SpringLayout.HORIZONTAL_CENTER, progressBar);
-        layout.putConstraint(SpringLayout.WEST, downloadSpeedLabel, 470, SpringLayout.WEST, panel);
+        layout.putConstraint(SpringLayout.WEST, downloadSpeedLabel, 500, SpringLayout.WEST, panel);
         layout.putConstraint(SpringLayout.EAST, seedToPeerLabel, -100, SpringLayout.EAST, panel);
     }
 
     public void updateData(Torrent torrent){
-        var downloaded = getMeasuredValue(tdisk.getCompleted());
-        var totalSize = getMeasuredValue(metafile.getLength());
-        progressBar.setValue((int) (1000 * (downloaded / (double) totalSize)));
-        downloadedCountLabel.setText(String.format("%d / %d %s", downloaded, totalSize, scaleValue));
-        downloadSpeedLabel.setText(String.format("%.2f %s/s", (float) (downloaded - lastDownloaded) / (SLEEP_TIME / 1000), scaleValue));
-        lastDownloaded = downloaded;
-        var peersManager = torrent.getPeersManager();
-        var peerCount = peersManager.getActivePeersNumber();
-        var seedCount = peersManager.getSeedersNumber();
-        seedToPeerLabel.setText(String.format("%d / %d", seedCount, peerCount));
+        try {
+            var totalSize = getMeasuredValue(metafile.getLength());
+            sizeLabel.setText(String.format("%d %s", totalSize, scaleValue));
+            var downloaded = getMeasuredValue(tdisk.getCompleted());
+            progressBar.setValue((int) (1000 * (downloaded / (double) totalSize)));
+            downloadedCountLabel.setText(String.format("%d %s", downloaded, scaleValue));
+            downloadSpeedLabel.setText(String.format("%.2f %s/s", (float) (downloaded - lastDownloaded) / (SLEEP_TIME / 1000), scaleValue));
+            lastDownloaded = downloaded;
+            var peersManager = torrent.getPeersManager();
+            var peerCount = peersManager.getActivePeersNumber();
+            var seedCount = peersManager.getSeedersNumber();
+            seedToPeerLabel.setText(String.format("%d / %d", seedCount, peerCount));
+        } catch (NullPointerException e) {
+            e.printStackTrace();
+        }
     }
 
     public void playButtonClick(){
        if (wasStarted) {
             playButton.setIcon(PLAY_ICON);
             tbuilder.breakDownload();
-            try {
-                inputStream.close();
-                fileInputStream.close();
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
         } else {
             playButton.setIcon(PAUSE_ICON);
             new Thread(() -> {

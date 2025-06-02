@@ -16,7 +16,6 @@ public class TBuilder {
     };
 
     public void downloadFile(Metafile metafile, TorrentDisk tdisk) throws Exception {
-        tdisk.init();
         
         IncomingPeerListener peerListener = new IncomingPeerListener(TorrentInfo.PORT);
         peerListener.start();
@@ -40,10 +39,11 @@ public class TBuilder {
             torrentInfo.updateData(torrent);
         }
 
-        stopDownload = false;
         torrent.interrupt();
         peerListener.interrupt();
-        torrentInfo.playButtonClick();
+        if (!stopDownload)
+            torrentInfo.playButtonClick();
+        stopDownload = false;
     }
 
     public boolean breakDownload() {

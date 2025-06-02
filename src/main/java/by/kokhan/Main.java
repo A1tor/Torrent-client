@@ -33,7 +33,7 @@ public class Main {
             // Создание главного окна
             JFrame frame = new JFrame("Торрент клиент");
             frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-            frame.setSize(700, 400);
+            frame.setSize(720, 400);
             frame.setLayout(new BorderLayout());
 
             // Верхний тулбар
@@ -67,8 +67,13 @@ public class Main {
             });
 
             JComboBox<String> scaleUnitСomboBox = new JComboBox<>(TorrentInfo.scaleUnitArray);
-            scaleUnitСomboBox.setSelectedIndex(1);
-            scaleUnitСomboBox.addActionListener(e -> TorrentInfo.changeScaleUnit(scaleUnitСomboBox.getSelectedIndex()));
+            scaleUnitСomboBox.setSelectedIndex(2);
+            scaleUnitСomboBox.addActionListener(e -> {
+                TorrentInfo.changeScaleUnit(scaleUnitСomboBox.getSelectedIndex());
+                for (var torrentInfo : torrentInfoMap.values()) {
+                    torrentInfo.updateData(null);
+                }
+            });
             topToolBar.add(scaleUnitСomboBox);
 
             torrentListPanel.setLayout(new BoxLayout(torrentListPanel, BoxLayout.Y_AXIS));
